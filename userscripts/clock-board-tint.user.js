@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Clock board tint (lichess + chess.com)
 // @namespace    hr_streamer
-// @version      1.5.1
+// @version      1.5.2
 // @description  Tints the board squares as YOUR clock runs down (bottom clock): yellow, amber, red, then a pulse. Optional auto-queen.
 // @match        https://lichess.org/*
 // @match        https://www.chess.com/*
@@ -201,15 +201,19 @@
   function placeButton() {
     const clock = document.querySelector(site === 'lichess' ? '.rclock-bottom' : '.clock-component.clock-bottom');
     const r = clock && clock.getBoundingClientRect();
-    const show = !!(r && r.width && r.bottom + 40 < innerHeight);
+    // lichess shows the captured-piece count in its own row just under the clock; sit below it
+    const mat = site === 'lichess' && document.querySelector('.material-bottom');
+    const mr = mat && mat.getBoundingClientRect();
+    const bottom = r ? Math.max(r.bottom, mr && mr.height ? mr.bottom : 0) : 0;
+    const show = !!(r && r.width && bottom + 40 < innerHeight);
     const on = !!S().AUTO_QUEEN;
-    const key = show ? `${Math.round(r.left)}|${Math.round(r.bottom)}|${Math.round(r.width)}|${on}` : 'hidden';
+    const key = show ? `${Math.round(r.left)}|${Math.round(bottom)}|${Math.round(r.width)}|${on}` : 'hidden';
     if (key === aqKey) return;
     aqKey = key;
     aq.style.display = show ? 'block' : 'none';
     if (!show) return;
     aq.style.left = `${r.left}px`;
-    aq.style.top = `${r.bottom + 8}px`;
+    aq.style.top = `${bottom + 8}px`;
     aq.style.width = `${Math.max(150, r.width)}px`;
     aq.classList.toggle('on', on);
     aq.innerHTML = `<span class="q">♛</span>Auto-queen<span class="st">${on ? 'ON' : 'OFF'}</span>`;
