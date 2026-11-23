@@ -39,8 +39,7 @@ brew trust tdiethe/tap     # Homebrew asks you to trust third-party taps
 brew install --cask lichess-desk
 ```
 
-It isn't signed with an Apple Developer ID, so macOS blocks the first launch: open it once, then
-allow it under *System Settings → Privacy & Security → Open Anyway*.
+Releases are signed with a Developer ID and notarised by Apple, so it opens like any other app.
 
 A native Mac app around lichess.org (Apple Silicon and Intel, macOS 13.3+):
 
