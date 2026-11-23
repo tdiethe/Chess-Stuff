@@ -34,7 +34,9 @@ Needs [uv](https://docs.astral.sh/uv/); it installs the one dependency (`bleak`)
 ## Lichess Desk — `lichess-desk/`
 
 ```bash
-brew install --cask tdiethe/tap/lichess-desk
+brew tap tdiethe/tap
+brew trust tdiethe/tap     # Homebrew asks you to trust third-party taps
+brew install --cask lichess-desk
 ```
 
 It isn't signed with an Apple Developer ID, so macOS blocks the first launch: open it once, then
