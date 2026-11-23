@@ -1,0 +1,406 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Heart Rate Overlay</title>
+<!--
+  OBS Browser Source: http://127.0.0.1:8765/   width 420, height 320.
+  Zones, colours and the spike threshold come from zones.toml (via the bridge).
+-->
+<style>
+  :root {
+    --heart: #ff3b5c;
+    --panic: #ff3b5c;   /* card zone colour; set from zones.toml */
+    --stale: #8a8a8a;
+  }
+  /* --zc is set per reading on <body>, so resolve --zone there (not on :root). */
+  body { --zone: var(--zc, #ffffff); }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body {
+    font-family: "SF Pro Display", "Inter", system-ui, sans-serif;
+    padding: 16px;
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+  }
+  body.stale { --zone: var(--stale); }
+
+  /* Fixed 388px row; nothing may wrap or push past it (long zone names, 3-digit bpm). */
+  .row { display: flex; align-items: center; gap: 12px; width: 388px; }
+  .row > * { flex-shrink: 0; white-space: nowrap; }
+  .heart-wrap { position: relative; width: 64px; height: 64px; }
+  #heart {
+    width: 64px; height: 64px; fill: var(--heart);
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.5));
+    transform-origin: center;
+    transition: fill .4s;
+  }
+  body.stale #heart { fill: var(--stale); }
+  #heart.beat { animation: beat var(--period, 1s) ease-out infinite; }
+  @keyframes beat {
+    0% { transform: scale(1); } 12% { transform: scale(1.18); }
+    24% { transform: scale(1); } 36% { transform: scale(1.08); }
+    55%, 100% { transform: scale(1); }
+  }
+  /* Ripple ring on a spike */
+  .ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 3px solid var(--heart); opacity: 0; pointer-events: none;
+  }
+  body.spike .ring { animation: ripple .9s ease-out 3; }
+  @keyframes ripple {
+    0% { transform: scale(.6); opacity: .9; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  #bpm {
+    font-size: 66px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;
+    color: var(--zone); transition: color .4s;
+  }
+  body.spike #bpm { animation: flash .45s ease-in-out 6 alternate; }
+  @keyframes flash {
+    from { text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+    to   { text-shadow: 0 0 18px var(--panic), 0 0 4px var(--panic); transform: scale(1.06); }
+  }
+  .side { display: flex; flex-direction: column; justify-content: space-between; height: 64px; }
+  #unit { font-size: 20px; font-weight: 600; opacity: .85; }
+  #zone {
+    font-size: 11px; font-weight: 800; letter-spacing: .08em;
+    color: var(--zone); transition: color .4s;
+  }
+  #peak {
+    margin-left: auto; text-align: right; align-self: stretch;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  #peak .label { font-size: 11px; font-weight: 700; letter-spacing: .1em; opacity: .8; }
+  #peak .value { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  #peak .value::after { content: " ♥"; font-size: 18px; color: var(--heart); }
+  #peak.hidden { visibility: hidden; }
+
+  .trace-wrap { position: relative; width: 388px; height: 80px; margin-top: 10px; }
+  #trace { display: block; width: 388px; height: 80px; }
+
+  /* Scoreboard: site, rating (+/- today), record, streak */
+  #board {
+    display: flex; align-items: baseline; gap: 12px; width: 388px; margin-bottom: 10px;
+    font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  #board.hidden { visibility: hidden; }
+  #board .site { font-size: 12px; letter-spacing: .12em; opacity: .75; }
+  #board .up { color: #4ade80; }
+  #board .down { color: #ff6b81; }
+  #board .rec { margin-left: auto; }
+  #board .w { color: #4ade80; } #board .l { color: #ff6b81; } #board .d { opacity: .75; }
+  #board .streak {
+    font-size: 12px; padding: 2px 7px; border-radius: 6px; text-shadow: none;
+    background: rgba(255,255,255,.15);
+  }
+  #board .streak.W { background: #16a34a; } #board .streak.L { background: #dc2626; }
+
+  /* Post-game card, slides over the trace for a few seconds */
+  #card {
+    position: absolute; inset: 0; border-radius: 10px; padding: 10px 14px; box-sizing: border-box;
+    background: rgba(12, 12, 18, .92); border-left: 6px solid var(--res, #888);
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+    opacity: 0; transform: translateY(12px); transition: opacity .4s, transform .4s;
+    text-shadow: none;
+  }
+  #card.show { opacity: 1; transform: none; }
+  #card.win { --res: #22c55e; } #card.loss { --res: #ef4444; } #card.draw { --res: #a3a3a3; }
+  #card .top { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; overflow: hidden; }
+  #card .res { font-size: 22px; font-weight: 900; letter-spacing: .06em; color: var(--res); }
+  #card .opp { font-size: 15px; font-weight: 600; opacity: .9; overflow: hidden; text-overflow: ellipsis; }
+  #card .diff { margin-left: auto; font-size: 16px; font-weight: 800; }
+  #card .stats { display: flex; gap: 18px; font-size: 13px; font-weight: 700; letter-spacing: .06em; }
+  #card .stats b { font-size: 18px; letter-spacing: 0; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  #card .stats .panic b { color: var(--panic); }
+
+  /* Recent games: one tile per game, oldest left, newest right */
+  #recent { width: 388px; margin-top: 12px; }
+  #recent.hidden { display: none; }
+  #recent .head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+    font-size: 12px; font-weight: 800; letter-spacing: .12em; white-space: nowrap;
+  }
+  #recent .head .label { opacity: .75; }
+  #recent .head .run { margin-left: auto; letter-spacing: .06em; }
+  #recent .head .run.W { color: #4ade80; } #recent .head .run.L { color: #ff6b81; }
+  #recent .head .best { opacity: .75; letter-spacing: .06em; }
+  #recent .tiles { display: flex; gap: 4px; justify-content: flex-end; }
+  .tile {
+    width: 35px; height: 48px; border-radius: 7px; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    background: rgba(255,255,255,.14); text-shadow: none; font-variant-numeric: tabular-nums;
+  }
+  .tile.W { background: #16a34a; } .tile.L { background: #dc2626; } .tile.D { background: #6b7280; }
+  .tile .r { font-size: 17px; font-weight: 900; line-height: 1; }
+  .tile .diff { font-size: 10px; font-weight: 700; opacity: .9; }
+  .tile .pk { font-size: 9px; font-weight: 700; opacity: .85; }
+  .tile.latest { outline: 2px solid #fff; outline-offset: 1px; }
+  .tile.new { animation: pop .5s ease-out; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); } to { transform: none; opacity: 1; } }
+</style>
+</head>
+<body class="stale">
+  <div id="board" class="hidden"></div>
+  <div class="row">
+    <div class="heart-wrap">
+      <div class="ring"></div>
+      <svg id="heart" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+    </div>
+    <div id="bpm">--</div>
+    <div class="side">
+      <div id="zone">&nbsp;</div>
+      <div id="unit">BPM</div>
+    </div>
+    <div id="peak" class="hidden">
+      <div class="label">PEAK</div>
+      <div class="value" id="peakValue">--</div>
+    </div>
+  </div>
+  <div class="trace-wrap">
+    <canvas id="trace"></canvas>
+    <div id="card"></div>
+  </div>
+  <div id="recent" class="hidden">
+    <div class="head"><span class="label">LAST <span id="recentN"></span></span><span class="best" id="recentBest"></span><span class="run" id="recentRun"></span></div>
+    <div class="tiles" id="recentTiles"></div>
+  </div>
+<script>
+  const CARD_MS = 15000;              // post-game card display time
+  const WINDOW_MS = 5 * 60 * 1000;   // trace length
+  const GAP_MS = 10 * 1000;          // break the line if readings stop this long
+
+  const $ = id => document.getElementById(id);
+  const heart = $('heart'), bpmEl = $('bpm'), zoneEl = $('zone');
+  const peakEl = $('peak'), peakValue = $('peakValue');
+  const canvas = $('trace'), ctx = canvas.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const C = k => css.getPropertyValue(k).trim();
+
+  let points = [];   // [timestamp ms, bpm]
+  let games = [];    // new-game timestamps
+  let cfg = { zones: [{ name: '', from: 0, color: '#ffffff' }], spike: 15, card_zone: '' };
+  let last = 0;
+  let spikeUntil = 0, spikeCooldown = 0;
+
+  // Zones are sorted by `from`; a reading belongs to the last zone it reaches.
+  const zoneOf = bpm => cfg.zones.reduce((z, c) => bpm >= c.from ? c : z, cfg.zones[0]);
+
+  function setConfig(c) {
+    if (!c || !c.zones || !c.zones.length) return;
+    cfg = c;
+    const top = c.zones.find(z => z.name === c.card_zone) || c.zones[c.zones.length - 1];
+    document.documentElement.style.setProperty('--panic', top.color);
+    if (Date.now() - last < 5000) setLive(+bpmEl.textContent, last);
+  }
+
+  function setLive(bpm, t) {
+    last = t;
+    bpmEl.textContent = bpm;
+    heart.style.setProperty('--period', (60 / bpm) + 's');
+    heart.classList.add('beat');
+    const z = zoneOf(bpm);
+    document.body.classList.remove('stale');
+    document.body.style.setProperty('--zc', z.color);
+    zoneEl.textContent = z.name;
+  }
+
+  function checkSpike(bpm, now) {
+    const recent = points.filter(p => p[0] >= now - 30000).map(p => p[1]);
+    if (!recent.length || now < spikeCooldown) return;
+    if (bpm - Math.min(...recent) >= cfg.spike) {
+      document.body.classList.remove('spike');
+      void document.body.offsetWidth;          // restart the animation
+      document.body.classList.add('spike');
+      spikeUntil = now + 2800;
+      spikeCooldown = now + 20000;
+    }
+  }
+
+  function setPeak(peak) {
+    peakEl.classList.toggle('hidden', !peak);
+    if (peak) peakValue.textContent = peak;
+  }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    if (canvas.width !== W * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const now = Date.now();
+    points = points.filter(p => p[0] >= now - WINDOW_MS);
+    games = games.filter(t => t >= now - WINDOW_MS);
+    if (points.length < 2) return;
+
+    const labelW = 34;
+    const plotW = W - labelW, top = 8, bottom = H - 8;
+    const vals = points.map(p => p[1]);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi - lo < 20) { const mid = (hi + lo) / 2; lo = mid - 10; hi = mid + 10; }
+    const x = t => plotW * (1 - (now - t) / WINDOW_MS);
+    const y = v => bottom - (v - lo) / (hi - lo) * (bottom - top);
+
+    // New-game markers
+    ctx.save();
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = 'rgba(255,255,255,.45)';
+    ctx.lineWidth = 1;
+    for (const g of games) {
+      ctx.beginPath(); ctx.moveTo(x(g), top - 4); ctx.lineTo(x(g), bottom + 4); ctx.stroke();
+    }
+    ctx.restore();
+
+    const segs = [[points[0]]];
+    for (let i = 1; i < points.length; i++) {
+      if (points[i][0] - points[i - 1][0] > GAP_MS) segs.push([]);
+      segs[segs.length - 1].push(points[i]);
+    }
+
+    // Line colour follows the zone at each height (hard edges at zone boundaries).
+    const stale = now - last > 5000;
+    let stroke;
+    if (stale) {
+      stroke = C('--stale');
+    } else {
+      // Gradient runs bottom (0) -> top (1); each zone covers [its from, next from).
+      const frac = v => Math.min(1, Math.max(0, (bottom - y(v)) / (bottom - top)));
+      stroke = ctx.createLinearGradient(0, bottom, 0, top);
+      cfg.zones.forEach((z, i) => {
+        const a = frac(z.from), next = cfg.zones[i + 1];
+        const b = next ? frac(next.from) : 1;
+        if (b <= a && next) return;           // zone entirely off-screen
+        stroke.addColorStop(a, z.color);
+        stroke.addColorStop(Math.max(a, b - 0.0001), z.color);
+      });
+    }
+    const base = stale ? C('--stale') : C('--heart');
+    const fill = ctx.createLinearGradient(0, top, 0, bottom);
+    fill.addColorStop(0, base + '55');
+    fill.addColorStop(1, base + '00');
+
+    for (const s of segs) {
+      if (s.length < 2) continue;
+      const path = () => s.forEach(([t, v], i) => i ? ctx.lineTo(x(t), y(v)) : ctx.moveTo(x(t), y(v)));
+      ctx.beginPath(); path();
+      ctx.lineTo(x(s[s.length - 1][0]), bottom);
+      ctx.lineTo(x(s[0][0]), bottom);
+      ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+
+      ctx.beginPath(); path();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 3;
+    ctx.textBaseline = 'middle';
+    const vmax = Math.max(...vals), vmin = Math.min(...vals);
+    ctx.fillText(vmax, plotW + 6, Math.max(top + 6, y(vmax)));
+    if (vmin !== vmax) ctx.fillText(vmin, plotW + 6, Math.min(bottom - 6, y(vmin)));
+    ctx.shadowBlur = 0;
+  }
+
+  setInterval(() => {
+    const now = Date.now();
+    if (now - last > 5000) {
+      document.body.classList.add('stale');
+      heart.classList.remove('beat');
+      zoneEl.innerHTML = '&nbsp;';
+    }
+    if (now > spikeUntil) document.body.classList.remove('spike');
+    draw();
+  }, 1000);
+
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const signed = n => (n > 0 ? '▲' : n < 0 ? '▼' : '±') + Math.abs(n);
+
+  function setBoard(b) {
+    const el = $('board');
+    el.classList.toggle('hidden', !b);
+    if (!b) return;
+    const delta = b.delta == null ? '' :
+      `<span class="${b.delta > 0 ? 'up' : b.delta < 0 ? 'down' : ''}">${signed(b.delta)}</span>`;
+    const played = b.w + b.l + b.d;
+    el.innerHTML =
+      `<span class="site">${esc(b.site).toUpperCase()} · ${esc(b.perf).toUpperCase()}</span>` +
+      `<span>${b.rating ?? '—'}</span>${delta}` +
+      (played ? `<span class="rec"><span class="w">${b.w}W</span> <span class="l">${b.l}L</span> <span class="d">${b.d}D</span></span>` : '<span class="rec"></span>') +
+      (b.streak && b.streak.slice(1) > 1 ? `<span class="streak ${b.streak[0]}">${esc(b.streak)}</span>` : '');
+  }
+
+  let seenGames = null;
+  function setRecent(b) {
+    const el = $('recent');
+    const games = (b && b.recent) || [];
+    el.classList.toggle('hidden', !games.length);
+    if (!games.length) return;
+    $('recentN').textContent = games.length;
+    const best = [b.best_w > 1 ? `BEST W${b.best_w}` : '', b.best_l > 1 ? `L${b.best_l}` : ''].filter(Boolean).join(' · ');
+    $('recentBest').textContent = best;
+    // Current run, said out loud once it's 2+ games.
+    const n = +String(b.streak || '').slice(1), kind = String(b.streak || '')[0];
+    const run = $('recentRun');
+    run.className = 'run ' + (kind || '');
+    run.textContent = n >= 2 ? (kind === 'W' ? `🔥 ${n} WINS IN A ROW` : kind === 'L' ? `${n} LOSSES IN A ROW` : `${n} DRAWS IN A ROW`) : '';
+    const fresh = seenGames ? games.filter(g => !seenGames.has(g.id)).map(g => g.id) : [];
+    seenGames = new Set(games.map(g => g.id));
+    $('recentTiles').innerHTML = games.map((g, i) => {
+      const cls = ['tile', g.r, i === games.length - 1 ? 'latest' : '', fresh.includes(g.id) ? 'new' : ''].join(' ');
+      const diff = `<span class="diff">${g.diff == null ? '–' : (g.diff > 0 ? '+' : '') + g.diff}</span>`;
+      const pk = `<span class="pk">♥${g.peak || '–'}</span>`;
+      return `<div class="${cls}" title="${esc(g.opp)}"><span class="r">${esc(g.r)}</span>${diff}${pk}</div>`;
+    }).join('');
+  }
+
+  let shownCard = null, cardTimer = null;
+  function setCard(c) {
+    if (!c || c.at === shownCard) return;
+    const age = Date.now() - c.at;
+    if (age > CARD_MS) return;         // old card (e.g. after a reload): don't replay it
+    shownCard = c.at;
+    const el = $('card');
+    el.className = c.result;
+    const diff = c.rating_diff == null ? '' :
+      `<span class="diff" style="color:${c.rating_diff >= 0 ? '#4ade80' : '#ff6b81'}">${c.rating_diff > 0 ? '+' : ''}${c.rating_diff}</span>`;
+    el.innerHTML =
+      `<div class="top"><span class="res">${esc(c.result).toUpperCase()}</span>` +
+      `<span class="opp">vs ${esc(c.opponent)}${c.opp_rating ? ' (' + c.opp_rating + ')' : ''}</span>${diff}</div>` +
+      `<div class="stats"><span>AVG<b>${c.avg ?? '—'}</b></span><span>PEAK<b>${c.peak ?? '—'}</b></span>` +
+      (c.panic_label ? `<span class="panic">${esc(c.panic_label)}<b>${c.panic_s ?? 0}s</b></span>` : '') + '</div>';
+    requestAnimationFrame(() => el.classList.add('show'));
+    clearTimeout(cardTimer);
+    cardTimer = setTimeout(() => el.classList.remove('show'), CARD_MS - age);
+  }
+
+  const es = new EventSource('/events');
+  es.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.zones && JSON.stringify(d.zones) !== JSON.stringify(cfg)) setConfig(d.zones);
+    setBoard(d.board);
+    setRecent(d.board);
+    setCard(d.card);
+    games = d.games || games;
+    setPeak(d.peak);
+    if (d.history) {                       // first message after (re)connect
+      points = d.history;
+      const p = points[points.length - 1];
+      if (p && Date.now() - p[0] < 5000) setLive(p[1], p[0]);
+    } else if (d.bpm && d.ts > last) {     // a new reading (not a status-only message)
+      checkSpike(d.bpm, d.ts);
+      points.push([d.ts, d.bpm]);
+      setLive(d.bpm, d.ts);
+    }
+    draw();
+  };
+</script>
+</body>
+</html>

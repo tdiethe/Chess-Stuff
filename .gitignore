@@ -1,0 +1,5 @@
+__pycache__/
+build/
+hr.txt
+rating_baseline.json
+.DS_Store
