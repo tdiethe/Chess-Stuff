@@ -13,7 +13,7 @@ import json
 import random
 import time
 import urllib.request
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 
 UA = "hr-overlay/1.0 (OBS heart-rate overlay)"
@@ -245,12 +245,12 @@ def _chesscom_game(j: dict, user: str) -> Game | None:
     res = me["result"]
     result = "win" if res == "win" else "draw" if res in CHESSCOM_DRAWS else "loss"
     start = None
-    tags = {l[1:].split(" ", 1)[0]: l.split('"')[1] for l in j.get("pgn", "").splitlines()
-            if l.startswith("[") and '"' in l}
+    tags = {line[1:].split(" ", 1)[0]: line.split('"')[1] for line in j.get("pgn", "").splitlines()
+            if line.startswith("[") and '"' in line}
     if "UTCDate" in tags and "UTCTime" in tags:
         try:
             start = dt.datetime.strptime(f'{tags["UTCDate"]} {tags["UTCTime"]}', "%Y.%m.%d %H:%M:%S") \
-                .replace(tzinfo=dt.timezone.utc).timestamp()
+                .replace(tzinfo=dt.UTC).timestamp()
         except ValueError:
             pass
     end = float(j["end_time"])
@@ -302,7 +302,7 @@ async def chesscom_feed(user: str, tracker: Tracker, on_start, on_end, on_change
     while True:
         try:
             m0 = midnight()
-            months = {dt.datetime.fromtimestamp(t, dt.timezone.utc).strftime("%Y/%m")
+            months = {dt.datetime.fromtimestamp(t, dt.UTC).strftime("%Y/%m")
                       for t in (m0, time.time())}
             raw = []
             for m in sorted(months):

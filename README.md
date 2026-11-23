@@ -2,9 +2,15 @@
 
 Random collection of scripts and other stuff, mostly for streaming bullet chess.
 
-## Heart-rate overlay for OBS — `hr_overlay.py`
+| Folder | What it is |
+| --- | --- |
+| [`hr-overlay/`](hr-overlay) | Heart-rate overlay for OBS, with a lichess / chess.com scoreboard |
+| [`lichess-desk/`](lichess-desk) | Lichess Desk: a small Mac app around lichess.org, made for streaming |
+| [`userscripts/`](userscripts) | Tampermonkey scripts: board tint as your clock runs down, auto-queen |
 
-Reads heart rate from a watch that broadcasts over Bluetooth (e.g. Garmin Fenix with
+## Heart-rate overlay — `hr-overlay/`
+
+Reads heart rate from a watch that broadcasts over Bluetooth (e.g. a Garmin Fenix with
 *Broadcast Heart Rate* on) and serves an OBS Browser Source at `http://127.0.0.1:8765/`:
 
 - big BPM with zone colour and label, spike flash, per-game peak
@@ -14,19 +20,20 @@ Reads heart rate from a watch that broadcasts over Bluetooth (e.g. Garmin Fenix 
 - post-game card: average, peak and time spent in the panic zone
 
 ```bash
-uv run hr_overlay.py --name fenix --lichess <user>            # or --chesscom <user>, or both
-uv run hr_overlay.py --demo                                    # fake data, no watch needed
-uv run hr_overlay.py --scan                                    # list nearby BLE devices
+uv run hr-overlay/hr_overlay.py --name fenix --lichess <user>   # or --chesscom <user>, or both
+uv run hr-overlay/hr_overlay.py --demo                          # fake data, no watch needed
+uv run hr-overlay/hr_overlay.py --scan                          # list nearby Bluetooth devices
 ```
 
-Add a Browser Source in OBS pointing at `http://127.0.0.1:8765/`, size **420 × 320**.
+In OBS add a Browser Source pointing at `http://127.0.0.1:8765/`, size **420 × 320**.
 The port never changes; starting a new copy takes over from an old one.
-Zones live in `zones.toml` and reload live when you save it.
+Zones live in `hr-overlay/zones.toml` and reload live when you save it.
 `http://127.0.0.1:8765/hr.txt` gives the plain number for a Text source.
+Needs [uv](https://docs.astral.sh/uv/); it installs the one dependency (`bleak`) itself.
 
-## Lichess Desk — `mac_app/`
+## Lichess Desk — `lichess-desk/`
 
-A small native Mac app around lichess.org, for streaming:
+A native Mac app around lichess.org:
 
 - full desktop site (right-drag arrows, premoves, keyboard moves), stays logged in
 - fixed window title and size presets (View menu), so OBS Window Capture never needs redoing
@@ -34,16 +41,19 @@ A small native Mac app around lichess.org, for streaming:
 - Auto-queen button under your clock; hold ⌥ while promoting to pick another piece
 
 ```bash
-./build_app.sh            # builds build/Lichess Desk.app
-./build_app.sh --install  # and copies it to ~/Applications
+lichess-desk/build.sh            # builds lichess-desk/build/Lichess Desk.app
+lichess-desk/build.sh --install  # and copies it to ~/Applications
 ```
 
 Needs the Xcode command-line tools (`swiftc`). Not affiliated with lichess.org.
 
-## Userscripts (Tampermonkey)
+## Userscripts — `userscripts/`
 
-- `clock-board-tint.js` — tints the board yellow → amber → orange → red as **your** clock
-  runs down, pulses in the last seconds, fades after the game. Also has an optional
-  auto-queen with an on-page button. Lichess and chess.com. Lichess Desk bundles this file.
-- `auto-queen-toggle.js` — standalone auto-queen toggle (Alt+Q, hold Shift to choose).
-  Don't run it alongside the auto-queen in `clock-board-tint.js`.
+Open a script's **Raw** view on GitHub and Tampermonkey offers to install it (and keeps it updated).
+
+- `clock-board-tint.user.js`: tints the board yellow → amber → orange → red as **your**
+  clock runs down, pulses in the last seconds and fades after the game. Optional auto-queen
+  with a button under your clock (set `AUTO_QUEEN: true`). Works on lichess and chess.com.
+  Lichess Desk bundles this file.
+- `auto-queen-toggle.user.js`: standalone auto-queen toggle (Alt+Q, hold Shift to choose).
+  Don't run it alongside the auto-queen in `clock-board-tint.user.js`.
