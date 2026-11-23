@@ -4,7 +4,7 @@
 #
 #   lichess-desk/release.sh 1.0.1
 #
-# Then anyone can:  brew install --cask tdiethe/tap/lichess-desk
+# Then anyone can:  brew tap tdiethe/tap && brew trust tdiethe/tap && brew install --cask lichess-desk
 # Needs: gh (logged in with push access to the tap), Xcode command-line tools.
 set -euo pipefail
 cd "$(dirname "$0")"
