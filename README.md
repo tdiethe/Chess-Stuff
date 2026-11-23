@@ -52,8 +52,19 @@ A native Mac app around lichess.org (Apple Silicon and Intel, macOS 13.3+):
 ```bash
 lichess-desk/build.sh            # builds lichess-desk/build/Lichess Desk.app
 lichess-desk/build.sh --install  # and copies it to ~/Applications
-lichess-desk/release.sh 1.0.1    # publishes a release to the Homebrew tap
+lichess-desk/release.sh 1.0.1    # signs, notarises and publishes a release to the Homebrew tap
 ```
+
+One-time setup for `release.sh`:
+
+1. A **Developer ID Application** certificate: Xcode → Settings → Accounts → your team →
+   Manage Certificates → + → Developer ID Application.
+2. Notary credentials saved in the keychain (uses an app-specific password from
+   [account.apple.com](https://account.apple.com) → Sign-In and Security → App-Specific Passwords):
+
+   ```bash
+   xcrun notarytool store-credentials lichess-desk --apple-id <your Apple ID> --team-id <team ID>
+   ```
 
 Needs the Xcode command-line tools (`swiftc`). Not affiliated with lichess.org.
 
