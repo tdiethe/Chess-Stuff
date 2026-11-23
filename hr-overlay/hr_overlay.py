@@ -20,9 +20,9 @@ games are detected automatically (Enter in this terminal still works too).
 
 Zones (names, bpm ranges, colours) live in zones.toml; edits apply live.
 
-Run:   uv run hr_overlay.py --name fenix --lichess tommydacat
-       uv run hr_overlay.py --name fenix --chesscom tommydacat
-       uv run hr_overlay.py --name fenix --lichess tommydacat --chesscom tommydacat
+Run:   uv run hr-overlay/hr_overlay.py --name fenix --lichess tommydacat
+       uv run hr-overlay/hr_overlay.py --name fenix --chesscom tommydacat
+       uv run hr-overlay/hr_overlay.py --name fenix --lichess tommydacat --chesscom tommydacat
        uv run hr_overlay.py --demo          (fake heart rate and games, no Bluetooth)
 """
 
@@ -299,7 +299,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
                     try:
                         msg = await asyncio.wait_for(q.get(), timeout=15)
                         writer.write(f"data: {msg}\n\n".encode())
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         writer.write(b": ping\n\n")
                     await writer.drain()
             finally:

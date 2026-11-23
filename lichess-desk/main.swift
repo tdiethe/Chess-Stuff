@@ -1,9 +1,9 @@
 // Lichess Desk: a small Mac window around lichess.org for streaming.
 // - Full desktop site (right-drag arrows, premoves, keyboard input).
 // - Stays logged in between launches.
-// - Clock tint built in (clock-board-tint.js), with settings in the Tint menu.
+// - Clock tint built in (../userscripts/clock-board-tint.user.js), with settings in the Tint menu.
 // - Fixed window title and size presets so OBS Window Capture never needs touching.
-// Build with ./build_app.sh
+// Build with ./build.sh (--install copies it to ~/Applications)
 
 import AppKit
 import WebKit

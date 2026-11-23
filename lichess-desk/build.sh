@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds "Lichess Desk.app" into ./build. Pass --install to also copy it to ~/Applications.
-# Re-run after editing clock-board-tint.js: the app bundles that file.
+# Builds "Lichess Desk.app" into lichess-desk/build. Pass --install to also copy it to ~/Applications.
+# Re-run after editing ../userscripts/clock-board-tint.user.js: the app bundles that file.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -11,10 +11,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$TMP/AppIcon.iconset"
 
 echo "compiling…"
 swiftc -O -swift-version 5 -target arm64-apple-macos13.3 \
-  mac_app/main.swift -o "$APP/Contents/MacOS/LichessDesk"
+  main.swift -o "$APP/Contents/MacOS/LichessDesk"
 
 echo "icon…"
-swiftc -swift-version 5 mac_app/make_icon.swift -o "$TMP/make_icon"
+swiftc -swift-version 5 make_icon.swift -o "$TMP/make_icon"
 "$TMP/make_icon" "$TMP/icon_1024.png"
 for s in 16 32 128 256 512; do
   sips -z $s $s "$TMP/icon_1024.png" --out "$TMP/AppIcon.iconset/icon_${s}x${s}.png" >/dev/null
@@ -22,8 +22,8 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$TMP/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 
-cp mac_app/Info.plist "$APP/Contents/"
-cp clock-board-tint.js "$APP/Contents/Resources/"
+cp Info.plist "$APP/Contents/"
+cp ../userscripts/clock-board-tint.user.js "$APP/Contents/Resources/clock-board-tint.js"
 codesign --force --sign - "$APP"
 rm -rf "$TMP"
 echo "built: $APP"

@@ -1,11 +1,14 @@
 // ==UserScript==
 // @name         Clock board tint (lichess + chess.com)
 // @namespace    hr_streamer
-// @version      1.5
+// @version      1.5.1
 // @description  Tints the board squares as YOUR clock runs down (bottom clock): yellow, amber, red, then a pulse. Optional auto-queen.
 // @match        https://lichess.org/*
 // @match        https://www.chess.com/*
 // @run-at       document-idle
+// @homepageURL  https://github.com/tdiethe/Chess-Stuff
+// @downloadURL  https://raw.githubusercontent.com/tdiethe/Chess-Stuff/main/userscripts/clock-board-tint.user.js
+// @updateURL    https://raw.githubusercontent.com/tdiethe/Chess-Stuff/main/userscripts/clock-board-tint.user.js
 // @grant        none
 // ==/UserScript==
 
