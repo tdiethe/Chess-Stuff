@@ -33,7 +33,14 @@ Needs [uv](https://docs.astral.sh/uv/); it installs the one dependency (`bleak`)
 
 ## Lichess Desk — `lichess-desk/`
 
-A native Mac app around lichess.org:
+```bash
+brew install --cask tdiethe/tap/lichess-desk
+```
+
+It isn't signed with an Apple Developer ID, so macOS blocks the first launch: open it once, then
+allow it under *System Settings → Privacy & Security → Open Anyway*.
+
+A native Mac app around lichess.org (Apple Silicon and Intel, macOS 13.3+):
 
 - full desktop site (right-drag arrows, premoves, keyboard moves), stays logged in
 - fixed window title and size presets (View menu), so OBS Window Capture never needs redoing
@@ -43,6 +50,7 @@ A native Mac app around lichess.org:
 ```bash
 lichess-desk/build.sh            # builds lichess-desk/build/Lichess Desk.app
 lichess-desk/build.sh --install  # and copies it to ~/Applications
+lichess-desk/release.sh 1.0.1    # publishes a release to the Homebrew tap
 ```
 
 Needs the Xcode command-line tools (`swiftc`). Not affiliated with lichess.org.
