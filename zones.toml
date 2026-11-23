@@ -1,0 +1,42 @@
+# Heart-rate zones for the overlay.
+# Edit and save: the overlay picks up changes within a couple of seconds,
+# no restart needed.
+#
+# Each zone starts at `from` bpm and runs up to the next zone's `from`.
+# Add, remove or rename zones freely; colours are any CSS colour.
+#
+# Calibrated from a bullet session (19 Nov): you sit around 52-65 while
+# playing and peaked at 82, so the zones are tight. Max HR is ~190 for
+# reference (40% = 76, 50% = 95).
+
+# Flash the number when HR rises this many bpm within 30 seconds.
+spike = 10
+
+# Zone whose time is counted on the post-game card ("PANIC 12s").
+# Time in this zone *or any zone above it* is counted.
+card_zone = "PANIC"
+
+[[zone]]
+name = "ICE COLD"
+from = 0
+color = "#a5f3fc"
+
+[[zone]]
+name = "FOCUSED"
+from = 62
+color = "#ffffff"
+
+[[zone]]
+name = "TENSE"
+from = 70
+color = "#ffb020"
+
+[[zone]]
+name = "PANIC"
+from = 80
+color = "#ff3b5c"
+
+[[zone]]
+name = "MELTDOWN"
+from = 95
+color = "#e879f9"
