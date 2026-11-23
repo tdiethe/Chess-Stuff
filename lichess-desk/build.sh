@@ -31,7 +31,11 @@ if [[ -n "${VERSION:-}" ]]; then   # set by release.sh
   plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
 fi
 cp ../userscripts/clock-board-tint.user.js "$APP/Contents/Resources/clock-board-tint.js"
-codesign --force --sign - "$APP"
+if [[ -n "${SIGN_ID:-}" ]]; then   # set by release.sh: Developer ID + hardened runtime, ready to notarise
+  codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$APP"
+else                               # local build: ad-hoc signature
+  codesign --force --sign - "$APP"
+fi
 rm -rf "$TMP"
 echo "built: $APP"
 
