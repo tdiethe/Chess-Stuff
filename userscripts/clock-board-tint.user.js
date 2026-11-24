@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Clock board tint (lichess + chess.com)
 // @namespace    hr_streamer
-// @version      1.5.2
-// @description  Tints the board squares as YOUR clock runs down (bottom clock): yellow, amber, red, then a pulse. Optional auto-queen.
+// @version      1.6.0
+// @description  Tints the board squares as YOUR clock runs down (bottom clock): yellow, amber, red, then a pulse. Optional auto-queen. Flags new opponent accounts on lichess.
 // @match        https://lichess.org/*
 // @match        https://www.chess.com/*
 // @run-at       document-idle
@@ -35,6 +35,9 @@
     CLEAR_AFTER: 3,      // seconds after the game ends (no clock running) before the tint fades
     PREVIEW: null,       // seconds: show the tint as if your clock read this (for setting up OBS)
     AUTO_QUEEN: false,   // pick the queen as soon as the promotion menu opens (hold Option to choose)
+    OPP_AGE: true,       // lichess: show how old the opponent's account is, above their clock
+    NEW_DAYS: 14, NEW_GAMES: 30,      // red "new account" below either of these
+    YOUNG_DAYS: 90, YOUNG_GAMES: 200, // amber below either of these
   };
   // -----------------------------------------------------------------------
   const S = () => Object.assign({}, DEFAULTS, window.CT_SETTINGS || {});
@@ -220,4 +223,78 @@
   }
   setInterval(placeButton, 100);
   addEventListener('resize', placeButton);
+
+  // ---- Opponent account age (lichess) ------------------------------------
+  // Looks up the player at the top of the board via lichess's public user API
+  // and shows a pill above their clock: red for brand-new accounts, amber for
+  // young ones, grey otherwise. Drawn as a fixed overlay so lichess's own
+  // rendering never touches it.
+  if (site === 'lichess') {
+    const oppStyle = document.createElement('style');
+    oppStyle.textContent = `
+      #ct-opp { position: fixed; z-index: 100; display: none; box-sizing: border-box; height: 30px; padding: 0 12px;
+        border-radius: 4px; border: 1px solid rgba(255,255,255,.12); background: rgba(38,36,33,.95); color: #999;
+        font: 600 13px/28px 'Noto Sans', system-ui, sans-serif; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; pointer-events: none; }
+      #ct-opp b { font-weight: 800; }
+      #ct-opp.young { background: #6b4a0c; border-color: #d99a1e; color: #fff; }
+      #ct-opp.new { background: #8a1c1c; border-color: #ff4d4d; color: #fff; font-size: 14px;
+        animation: ct-opp-flash 1s ease-in-out 4; }
+      @keyframes ct-opp-flash { 50% { background: #d42a2a; box-shadow: 0 0 18px 4px rgba(255,60,60,.7); } }
+    `;
+    document.head.appendChild(oppStyle);
+    const pill = document.createElement('div');
+    pill.id = 'ct-opp';
+    document.body.appendChild(pill);
+
+    const cache = new Map();   // username -> {days, games, flagged} | 'pending' | 'error'
+    const lookup = name => {
+      cache.set(name, 'pending');
+      fetch('/api/user/' + encodeURIComponent(name), { headers: { Accept: 'application/json' } })
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(u => cache.set(name, {
+          days: (Date.now() - u.createdAt) / 864e5,
+          games: (u.count && u.count.all) || 0,
+          flagged: !!(u.tosViolation || u.disabled),
+        }))
+        .catch(() => cache.set(name, 'error'));
+    };
+    const age = d => d < 1 ? 'today' : d < 60 ? `${Math.floor(d)} day${d < 2 ? '' : 's'}`
+      : d < 730 ? `${Math.floor(d / 30.44)} months` : `${Math.floor(d / 365.25)} years`;
+    const n = x => x.toLocaleString('en-GB');
+
+    let oppKey = '';
+    const placeOpp = () => {
+      const o = S();
+      const link = o.OPP_AGE && document.querySelector('.ruser-top a.user-link[href^="/@/"]');
+      const name = link && decodeURIComponent(link.getAttribute('href').slice(3)).split(/[/?#]/)[0];
+      const info = name && cache.get(name.toLowerCase());
+      if (name && info === undefined) lookup(name.toLowerCase());
+      const anchor = document.querySelector('.material-top') || document.querySelector('.rclock-top');
+      const r = anchor && anchor.getBoundingClientRect();
+      const ok = !!(info && typeof info === 'object' && r && r.width && r.top - 38 >= 0);
+      let cls = '', html = '';
+      if (ok) {
+        const facts = `${age(info.days)} old · ${n(info.games)} game${info.games === 1 ? '' : 's'}`;
+        if (info.flagged) { cls = 'new'; html = `⚠ <b>FLAGGED ACCOUNT</b> · ${facts}`; }
+        else if (info.days < o.NEW_DAYS || info.games < o.NEW_GAMES) { cls = 'new'; html = `⚠ <b>NEW ACCOUNT</b> · ${facts}`; }
+        else if (info.days < o.YOUNG_DAYS || info.games < o.YOUNG_GAMES) { cls = 'young'; html = `Young account · ${facts}`; }
+        else html = `Account ${facts}`;
+      }
+      const key = ok ? `${name}|${cls}|${html}|${Math.round(r.left)}|${Math.round(r.top)}|${Math.round(r.width)}` : 'hidden';
+      if (key === oppKey) return;
+      const sameName = oppKey.split('|')[0] === name && pill.className === cls;
+      oppKey = key;
+      pill.style.display = ok ? 'block' : 'none';
+      if (!ok) return;
+      pill.style.left = `${r.left}px`;
+      pill.style.top = `${r.top - 38}px`;
+      pill.style.width = `${r.width}px`;
+      if (!sameName) pill.className = cls;   // re-setting the class would restart the flash
+      pill.innerHTML = html;
+      pill.title = `${name} on lichess`;
+    };
+    setInterval(placeOpp, 250);
+    addEventListener('resize', placeOpp);
+  }
 })();
