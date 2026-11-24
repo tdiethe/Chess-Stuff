@@ -31,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     func applicationDidFinishLaunching(_ n: Notification) {
         d.register(defaults: [
             "tintEnabled": true, "tintStart": 60, "tintStrength": 0.8,
-            "tintPulse": true, "tintGlow": true, "autoQueen": true, "zoom": 1.0, "floatOnTop": false,
+            "tintPulse": true, "tintGlow": true, "autoQueen": true, "oppAge": true, "zoom": 1.0, "floatOnTop": false,
         ])
         if let url = Bundle.main.url(forResource: "clock-board-tint", withExtension: "js"),
            let s = try? String(contentsOf: url, encoding: .utf8) { tintSource = s }
@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             "PULSE_BELOW": d.bool(forKey: "tintPulse") ? 5 : 0,
             "GLOW": d.bool(forKey: "tintGlow"),
             "AUTO_QUEEN": d.bool(forKey: "autoQueen"),
+            "OPP_AGE": d.bool(forKey: "oppAge"),
             "PREVIEW": preview.map { $0 as Any } ?? NSNull(),
         ]
         let data = try! JSONSerialization.data(withJSONObject: o)
@@ -178,6 +179,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         main.addItem(submenu("Play", [
             item("Auto-Queen", #selector(toggleAutoQueen), "a", [.command, .shift]),
             hint,
+            .separator(),
+            item("Show Opponent Account Age", #selector(toggleOppAge)),
         ]))
 
         main.addItem(submenu("Tint", [
@@ -219,6 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         case #selector(toggleGlow): on(d.bool(forKey: "tintGlow"))
         case #selector(setPreview(_:)): on((preview ?? -1) == m.tag)
         case #selector(toggleAutoQueen): on(d.bool(forKey: "autoQueen"))
+        case #selector(toggleOppAge): on(d.bool(forKey: "oppAge"))
         case #selector(toggleFloat): on(d.bool(forKey: "floatOnTop"))
         case #selector(goBack): return web.canGoBack
         case #selector(goForward): return web.canGoForward
@@ -259,6 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     @objc func toggleAutoQueen() { d.set(!d.bool(forKey: "autoQueen"), forKey: "autoQueen"); applySettings() }
+    @objc func toggleOppAge() { d.set(!d.bool(forKey: "oppAge"), forKey: "oppAge"); applySettings() }
     @objc func toggleTint() { d.set(!d.bool(forKey: "tintEnabled"), forKey: "tintEnabled"); applySettings() }
     @objc func setStart(_ s: NSMenuItem) { d.set(s.tag, forKey: "tintStart"); applySettings() }
     @objc func setStrength(_ s: NSMenuItem) { d.set(Double(s.tag) / 100, forKey: "tintStrength"); applySettings() }
