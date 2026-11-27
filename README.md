@@ -36,9 +36,12 @@ Needs [uv](https://docs.astral.sh/uv/); it installs the one dependency (`bleak`)
 
 ## Lichess Desk — `lichess-desk/`
 
-<img src="docs/lichess-desk.png" width="720" alt="Lichess Desk: the board tinted red with seconds left, a red NEW ACCOUNT pill above the opponent's clock, and the auto-queen button under yours">
+<img src="docs/lichess-desk.gif" width="720" alt="Lichess Desk: the board tints from yellow through amber to red as your clock runs from one minute to zero, with a red NEW ACCOUNT pill above the opponent's clock and the auto-queen button under yours">
 
-<sub>Staged: board tint previewed at 9 seconds, player names replaced.</sub>
+<sub>Sped up and staged: the last minute of your clock, player names replaced.</sub>
+
+Installs with [Homebrew](https://brew.sh). If you don't have it yet, the one-line install
+command is on [brew.sh](https://brew.sh); then:
 
 ```bash
 brew tap tdiethe/tap
