@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chess Stuff</title>
-<meta name="description" content="Free tools for streaming bullet chess: a lichess Mac app with clock tint, auto-queen and smurf warnings, and a live heart-rate overlay for OBS.">
+<meta name="description" content="Free tools for streaming bullet chess: a lichess Mac app with clock tint, auto-queen, smurf warnings and a built-in live heart-rate overlay for OBS.">
 <meta property="og:title" content="Chess Stuff">
 <meta property="og:description" content="Free tools for streaming bullet chess: a lichess Mac app and a live heart-rate overlay for OBS.">
 <meta property="og:image" content="https://chess.tomdiethe.com/hr-overlay.png">
@@ -52,6 +52,12 @@
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
   .grid.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   code { font: 0.9em var(--mono); background: var(--panel); padding: 1px 5px; border-radius: 4px; }
+  h3.how { font-size: 17px; margin: 0 0 10px; }
+  h3.how span { color: var(--muted); font-weight: 500; }
+  ol.steps { margin: 0 0 14px; padding-left: 22px; }
+  ol.steps li { padding: 3px 0; }
+  ol.steps li::marker { color: var(--green-hi); font-weight: 700; }
+  ol.steps + .note { margin-bottom: 28px; }
 
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; }
@@ -73,7 +79,7 @@
 <header class="wrap">
   <div class="knight" aria-hidden="true">♞</div>
   <h1>Chess Stuff</h1>
-  <p class="tag">Free, open-source tools for streaming bullet chess: a lichess app for the Mac and a live heart-rate overlay for OBS.</p>
+  <p class="tag">Free, open-source tools for streaming bullet chess: a lichess app for the Mac with a live heart-rate overlay for OBS built in.</p>
   <div class="btns">
     <a class="btn primary" href="#lichess-desk">Get Lichess Desk</a>
     <a class="btn" href="https://github.com/tdiethe/Chess-Stuff">View on GitHub</a>
@@ -96,7 +102,7 @@
           <li class="r"><b>Smurf warning.</b> Your opponent's account age and game count sit above their clock, flashing red for brand-new accounts, so you can abort in time.</li>
           <li><b>Auto-queen</b> with an on/off button under your clock. Hold ⌥ to pick another piece.</li>
           <li><b>The full desktop site:</b> arrows, premoves, keyboard moves, and you stay logged in.</li>
-          <li><b>Heart rate built in.</b> Connects to your watch over Bluetooth, shows your BPM next to your clock, and serves the heart-rate overlay below for OBS. No Python needed.</li>
+          <li class="r"><b>Heart rate built in.</b> Connects to your watch over Bluetooth, shows your BPM next to your clock, and serves the <a href="#hr-overlay">heart-rate overlay</a> for OBS.</li>
           <li><b>OBS-friendly:</b> a fixed window title and size presets (720p, 900p, 1080p), so Window Capture never needs redoing.</li>
         </ul>
         <pre><span class="c"># needs Homebrew: https://brew.sh</span>
@@ -112,7 +118,7 @@ brew install --cask lichess-desk</pre>
 <section id="hr-overlay">
   <div class="wrap">
     <h2>Heart-rate overlay</h2>
-    <p class="sub">Your live heart rate on stream, next to a lichess or chess.com scoreboard. Built into Lichess Desk (Heart Rate menu), or run the script below for chess.com and browsers.</p>
+    <p class="sub">Your live heart rate on stream, next to a scoreboard of today's games. Built into Lichess Desk; a small script covers chess.com and browsers.</p>
     <div class="pair">
       <div class="shot"><img src="hr-overlay.png" width="840" height="640" alt="Overlay with big BPM and zone label, session scoreboard, a heart-rate trace with game markers and the last 10 games as tiles"></div>
       <div class="shot"><img src="hr-overlay-card.png" width="840" height="640" alt="The overlay showing a post-game card with result, average, peak and time in the panic zone"></div>
@@ -128,10 +134,18 @@ brew install --cask lichess-desk</pre>
         </ul>
       </div>
       <div>
+        <h3 class="how">In Lichess Desk <span>· lichess</span></h3>
+        <ol class="steps">
+          <li>Turn on <b>Broadcast Heart Rate</b> on your watch.</li>
+          <li>Choose <b>Heart Rate → Heart Rate On</b> (⌘⇧B) and allow Bluetooth.</li>
+          <li>In OBS, add a Browser Source at <code>http://127.0.0.1:8765/</code>, 420 × 320.</li>
+        </ol>
+        <p class="note">Your games are followed automatically. Pick a specific watch under <b>Heart Rate → Watch</b>; <b>Demo Heart Rate</b> lets you set up OBS without one.</p>
+        <h3 class="how">Python bridge <span>· chess.com or a browser</span></h3>
         <pre><span class="c"># needs uv: https://docs.astral.sh/uv/</span>
-uv run hr-overlay/hr_overlay.py --name fenix --lichess &lt;you&gt;
+uv run hr-overlay/hr_overlay.py --name fenix --chesscom &lt;you&gt;
 uv run hr-overlay/hr_overlay.py --demo   <span class="c"># try it without a watch</span></pre>
-        <p class="note">Works with a watch that broadcasts heart rate over Bluetooth (tested with a Garmin Fenix). In OBS, add a Browser Source at <code>http://127.0.0.1:8765/</code>, 420 × 320.</p>
+        <p class="note">Same OBS URL. Use <code>--lichess &lt;you&gt;</code> for lichess in a browser. Quit the bridge before turning heart rate on in Lichess Desk: both use port 8765.</p>
       </div>
     </div>
   </div>
