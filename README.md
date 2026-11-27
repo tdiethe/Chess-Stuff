@@ -16,7 +16,10 @@ Random collection of scripts and other stuff, mostly for streaming bullet chess.
 <img src="docs/hr-overlay-card.png" width="420" alt="The same overlay with the post-game card showing average, peak and panic time">
 
 Reads heart rate from a watch that broadcasts over Bluetooth (e.g. a Garmin Fenix with
-*Broadcast Heart Rate* on) and serves an OBS Browser Source at `http://127.0.0.1:8765/`:
+*Broadcast Heart Rate* on) and serves an OBS Browser Source at `http://127.0.0.1:8765/`.
+If you play lichess in [Lichess Desk](#lichess-desk--lichess-desk), the app does all of this
+itself (**Heart Rate** menu), with no Python needed. Use the script below for chess.com or
+for playing in a browser.
 
 - big BPM with zone colour and label, spike flash, per-game peak
 - 5-minute trace with game markers
@@ -61,6 +64,12 @@ A native Mac app around lichess.org (Apple Silicon and Intel, macOS 13.3+):
 - Auto-queen button under your clock; hold ⌥ while promoting to pick another piece
 - opponent account age above their clock: red and flashing for brand-new accounts
   (under 14 days or 30 games), amber for young ones, so you can spot smurfs and abort in time
+- heart rate built in (**Heart Rate** menu): connects to your watch over Bluetooth, shows your
+  BPM next to your clock, and serves the [heart-rate overlay](#heart-rate-overlay--hr-overlay)
+  for OBS at `http://127.0.0.1:8765/`, following your lichess games for the scoreboard,
+  peaks and post-game card. Pick your watch under **Heart Rate → Watch**; **Demo Heart Rate**
+  lets you set up OBS without one. Zones: **Heart Rate → Edit Heart-Rate Zones…**
+  (same format as `zones.toml`). Quit the Python bridge first, since both use port 8765.
 
 ```bash
 lichess-desk/build.sh            # builds lichess-desk/build/Lichess Desk.app

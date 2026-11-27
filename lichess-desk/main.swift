@@ -3,6 +3,7 @@
 // - Stays logged in between launches.
 // - Clock tint built in (../userscripts/clock-board-tint.user.js), with settings in the Tint menu.
 // - Fixed window title and size presets so OBS Window Capture never needs touching.
+// - Optional heart rate from a Bluetooth watch, with the OBS overlay served by the app (hr.swift).
 // Build with ./build.sh (--install copies it to ~/Applications)
 
 import AppKit
@@ -18,13 +19,16 @@ func isLichess(_ url: URL) -> Bool {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate,
                          WKDownloadDelegate, NSMenuItemValidation, NSWindowDelegate,
-                         WKScriptMessageHandler {
+                         WKScriptMessageHandler, NSMenuDelegate {
     var window: NSWindow!
     var web: WKWebView!
     var tintSource = ""
     var preview: Int? = nil              // seconds; not saved, it's only for setting up OBS
     var downloads: [ObjectIdentifier: URL] = [:]
     let d = UserDefaults.standard
+    var hr: HeartRate!
+    var hrStatusItem: NSMenuItem!
+    var hrWatchMenu: NSMenu!
 
     // MARK: launch
 
@@ -32,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         d.register(defaults: [
             "tintEnabled": true, "tintStart": 60, "tintStrength": 0.8,
             "tintPulse": true, "tintGlow": true, "autoQueen": true, "oppAge": true, "zoom": 1.0, "floatOnTop": false,
+            "hrEnabled": false, "hrDemo": false, "hrBadge": true, "hrDevice": "", "hrPort": 8765,
         ])
         if let url = Bundle.main.url(forResource: "clock-board-tint", withExtension: "js"),
            let s = try? String(contentsOf: url, encoding: .utf8) { tintSource = s }
@@ -43,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         cfg.applicationNameForUserAgent = "Version/18.4 Safari/605.1.15" // full desktop site
 
         cfg.userContentController.add(self, name: "ctToggle")   // on-page buttons -> settings
+        cfg.userContentController.add(self, name: "ctHR")       // the logged-in lichess user, for game tracking
         web = WKWebView(frame: .zero, configuration: cfg)
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -62,7 +68,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         window.level = d.bool(forKey: "floatOnTop") ? .floating : .normal
         window.makeKeyAndOrderFront(nil)
 
+        let port = d.integer(forKey: "hrPort")
+        hr = HeartRate(port: UInt16(clamping: (1024...65535).contains(port) ? port : 8765))
+        hr.wantedName = d.string(forKey: "hrDevice") ?? ""
+        hr.onUpdate = { [weak self] in self?.hrChanged() }
         NSApp.mainMenu = buildMenu()
+        if d.bool(forKey: "hrEnabled") { hr.start(demo: d.bool(forKey: "hrDemo")) }
 
         var start = home
         if let s = d.string(forKey: "lastURL"), let u = URL(string: s), isLichess(u) { start = u }
@@ -102,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             uc.addUserScript(WKUserScript(source: tintSource, injectionTime: .atDocumentEnd,
                                           forMainFrameOnly: true))
         }
+        uc.addUserScript(WKUserScript(source: hrPageScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
     }
 
     // Applies to the open page immediately and to every later page load.
@@ -203,6 +215,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             item("Preview: 0:04 Left", #selector(setPreview(_:)), tag: 4),
         ]))
 
+        hrStatusItem = item("Heart rate is off", nil)
+        hrStatusItem.isEnabled = false
+        let watch = submenu("Watch", [])
+        hrWatchMenu = watch.submenu
+        hrWatchMenu.delegate = self
+        let hrMenu = submenu("Heart Rate", [
+            item("Heart Rate On", #selector(toggleHR), "b", [.command, .shift]),
+            hrStatusItem,
+            .separator(),
+            watch,
+            item("Demo Heart Rate (No Watch)", #selector(toggleHRDemo)),
+            item("Show BPM Next to My Clock", #selector(toggleHRBadge)),
+            .separator(),
+            item("New Game (Reset Peak)", #selector(hrNewGame)),
+            item("Copy OBS Overlay URL", #selector(copyOverlayURL)),
+            item("Open Overlay in Browser", #selector(openOverlay)),
+            item("Edit Heart-Rate Zones…", #selector(editZones)),
+        ])
+        hrMenu.submenu?.delegate = self
+        main.addItem(hrMenu)
+
         let win = submenu("Window", [
             item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
             item("Zoom", #selector(NSWindow.performZoom(_:))),
@@ -224,6 +257,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         case #selector(toggleAutoQueen): on(d.bool(forKey: "autoQueen"))
         case #selector(toggleOppAge): on(d.bool(forKey: "oppAge"))
         case #selector(toggleFloat): on(d.bool(forKey: "floatOnTop"))
+        case #selector(toggleHR): on(d.bool(forKey: "hrEnabled"))
+        case #selector(toggleHRDemo): on(d.bool(forKey: "hrDemo"))
+        case #selector(toggleHRBadge): on(d.bool(forKey: "hrBadge"))
+        case #selector(chooseWatch(_:)): on((m.representedObject as? String ?? "") == hr.wantedName)
+        case #selector(hrNewGame), #selector(openOverlay): return hr.running
         case #selector(goBack): return web.canGoBack
         case #selector(goForward): return web.canGoForward
         default: break
@@ -271,9 +309,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     @objc func toggleGlow() { d.set(!d.bool(forKey: "tintGlow"), forKey: "tintGlow"); applySettings() }
     @objc func setPreview(_ s: NSMenuItem) { preview = s.tag < 0 ? nil : s.tag; applySettings() }
 
+    // MARK: heart rate
+
+    @objc func toggleHR() {
+        d.set(!d.bool(forKey: "hrEnabled"), forKey: "hrEnabled")
+        if d.bool(forKey: "hrEnabled") { hr.start(demo: d.bool(forKey: "hrDemo")) } else { hr.stop() }
+    }
+    @objc func toggleHRDemo() {
+        d.set(!d.bool(forKey: "hrDemo"), forKey: "hrDemo")
+        if d.bool(forKey: "hrDemo") { d.set(true, forKey: "hrEnabled") }
+        if d.bool(forKey: "hrEnabled") { hr.start(demo: d.bool(forKey: "hrDemo")) }
+    }
+    @objc func toggleHRBadge() { d.set(!d.bool(forKey: "hrBadge"), forKey: "hrBadge"); hrChanged() }
+    @objc func chooseWatch(_ s: NSMenuItem) {
+        let name = s.representedObject as? String ?? ""
+        d.set(name, forKey: "hrDevice")
+        hr.choose(name)
+    }
+    @objc func hrNewGame() { hr.newGame() }
+    @objc func copyOverlayURL() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(hr.overlayURL, forType: .string)
+    }
+    @objc func openOverlay() { NSWorkspace.shared.open(URL(string: hr.overlayURL)!) }
+    @objc func editZones() {
+        guard let f = hr.zonesFileForEditing() else { return }
+        if !NSWorkspace.shared.open(f) {     // no app claims .toml: use TextEdit
+            NSWorkspace.shared.open([f], withApplicationAt: URL(fileURLWithPath: "/System/Applications/TextEdit.app"),
+                                    configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
+    var hrStatusText: String {
+        guard hr.running else { return "Heart rate is off" }
+        if let p = hr.serverProblem { return "Overlay: \(p)" }
+        let live = hr.bpm != nil && Date().timeIntervalSince1970 - hr.ts < 5
+        let who = hr.user.map { " · following \($0)" } ?? ""
+        return (live ? "\(hr.bpm!) bpm · \(hr.device ?? "watch")" : hr.status.prefix(1).uppercased() + hr.status.dropFirst()) + who
+    }
+
+    // Keeps the status line fresh and feeds the BPM badge on the page.
+    func hrChanged() {
+        hrStatusItem?.title = hrStatusText
+        var o: [String: Any] = ["show": hr.running && d.bool(forKey: "hrBadge")]
+        if let b = hr.bpm, Date().timeIntervalSince1970 - hr.ts < 5 {
+            let z = hr.zones.zone(for: b)
+            o["bpm"] = b; o["color"] = z.color; o["zone"] = z.name
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: o), let s = String(data: data, encoding: .utf8) {
+            web?.evaluateJavaScript("window.ctHR && window.ctHR(\(s))")
+        }
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        hrStatusItem.title = hrStatusText
+        guard menu === hrWatchMenu else { return }
+        menu.removeAllItems()
+        let any = item("Any Heart-Rate Watch", #selector(chooseWatch(_:)))
+        any.representedObject = ""
+        menu.addItem(any)
+        let saved = hr.wantedName
+        var names: [String] = []
+        for s in hr.seenDevices.values.sorted(by: { ($0.hasHR ? 1 : 0, $0.rssi) > ($1.hasHR ? 1 : 0, $1.rssi) })
+            where !names.contains(s.name) && names.count < 15 { names.append(s.name) }
+        if !saved.isEmpty && !names.contains(where: { $0.lowercased().contains(saved.lowercased()) }) { names.insert(saved, at: 0) }
+        if !names.isEmpty { menu.addItem(.separator()) }
+        for n in names {
+            let hasHR = hr.seenDevices.values.contains { $0.name == n && $0.hasHR }
+            let i = item(hasHR ? "\(n)  ♥" : n, #selector(chooseWatch(_:)))
+            i.representedObject = n
+            menu.addItem(i)
+        }
+        let note = item(hr.running && !hr.demo ? "Nearby devices appear here as they're found"
+                                               : "Turn heart rate on to look for watches", nil)
+        note.isEnabled = false
+        menu.addItem(.separator())
+        menu.addItem(note)
+    }
+
     // Messages from the page (only from lichess pages).
     func userContentController(_ uc: WKUserContentController, didReceive m: WKScriptMessage) {
         guard m.frameInfo.isMainFrame, let u = m.frameInfo.request.url, isLichess(u) else { return }
+        if m.name == "ctHR" {
+            if let o = m.body as? [String: Any], let user = o["user"] as? String { hr.setUser(user) }
+            hrChanged()
+            return
+        }
         if m.body as? String == "autoQueen" { toggleAutoQueen() }
     }
 
@@ -355,6 +476,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         downloads.removeValue(forKey: ObjectIdentifier(dl))
     }
 }
+
+// Reports the logged-in user (for game tracking) and draws your heart rate next to your clock.
+let hrPageScript = #"""
+(() => {
+  if (window.ctHR) return;
+  const post = o => { try { webkit.messageHandlers.ctHR.postMessage(o); } catch (e) {} };
+  post({ user: (document.body && document.body.dataset.user) || null });
+  let data = null, at = 0, el = null;
+  const css = document.createElement('style');
+  css.textContent = `#ct-hr{position:fixed;z-index:60;display:none;align-items:center;gap:5px;padding:0 9px;
+    height:30px;border-radius:15px;background:rgba(0,0,0,.6);color:#fff;font:800 17px/1 system-ui,sans-serif;
+    font-variant-numeric:tabular-nums;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+    #ct-hr i{font-style:normal;color:var(--ct-hr,#ff3b5c);font-size:15px;animation:ct-hr-beat 1s infinite}
+    #ct-hr b{color:var(--ct-hr,#fff)}
+    @keyframes ct-hr-beat{0%,60%,100%{transform:scale(1)}20%{transform:scale(1.25)}}`;
+  document.head.appendChild(css);
+  function place() {
+    const clock = document.querySelector('.rclock-bottom');
+    const live = data && data.show && data.bpm && Date.now() - at < 5000;
+    if (!clock || !live) { if (el) el.style.display = 'none'; return; }
+    if (!el) { el = document.createElement('div'); el.id = 'ct-hr'; document.body.appendChild(el); }
+    el.innerHTML = `<i>♥</i><b>${data.bpm}</b>`;
+    el.style.setProperty('--ct-hr', data.color || '#fff');
+    el.title = data.zone || '';
+    el.style.display = 'flex';
+    const r = clock.getBoundingClientRect();
+    el.style.left = `${Math.round(r.right - el.offsetWidth - 8)}px`;
+    el.style.top = `${Math.round(r.top + (r.height - el.offsetHeight) / 2)}px`;
+  }
+  window.ctHR = d => { data = d; at = Date.now(); place(); };
+  setInterval(place, 500);
+  addEventListener('resize', place);
+})();
+"""#
 
 MainActor.assumeIsolated {
     let app = NSApplication.shared
