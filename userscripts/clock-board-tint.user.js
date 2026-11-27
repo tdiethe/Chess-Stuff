@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Clock board tint (lichess + chess.com)
 // @namespace    hr_streamer
-// @version      1.6.0
-// @description  Tints the board squares as YOUR clock runs down (bottom clock): yellow, amber, red, then a pulse. Optional auto-queen. Flags new opponent accounts on lichess.
+// @version      1.7.0
+// @description  Tints the board squares as YOUR clock runs down (bottom clock): yellow, amber, then coral, with a gentle pulse at the end. Optional auto-queen. Flags new opponent accounts on lichess.
 // @match        https://lichess.org/*
 // @match        https://www.chess.com/*
 // @run-at       document-idle
@@ -23,14 +23,14 @@
     ENABLED: true,
     START: 60,
     STAGES: [
-      { at: 60, color: [255, 200, 66] },   // yellow
-      { at: 30, color: [255, 176, 32] },   // amber
-      { at: 15, color: [255, 106, 0] },    // orange
-      { at: 8,  color: [255, 31, 61] },    // red
+      { at: 60, color: [255, 214, 102] },  // yellow
+      { at: 30, color: [255, 186, 72] },   // amber
+      { at: 15, color: [255, 150, 70] },   // orange
+      { at: 8,  color: [255, 112, 90] },   // coral
     ],
-    MAX_STRENGTH: 0.8,   // 0..1, how strongly the squares take the colour at 0 s
+    MAX_STRENGTH: 0.5,   // 0..1, how strongly the squares take the colour at 0 s
     CURVE: 1.6,          // >1 keeps it subtle early and ramps up late
-    PULSE_BELOW: 5,      // seconds: pulse the tint when your clock is running and below this
+    PULSE_BELOW: 5,      // seconds: gently pulse the tint when your clock is running and below this
     GLOW: true,          // coloured glow around the board as well
     CLEAR_AFTER: 3,      // seconds after the game ends (no clock running) before the tint fades
     PREVIEW: null,       // seconds: show the tint as if your clock read this (for setting up OBS)
@@ -63,8 +63,8 @@
     }
     wc-chess-board.board { box-shadow: 0 0 var(--ct-glow) calc(var(--ct-glow) / 6) var(--ct-color); }
     html.ct-pulse .main-board cg-board::after,
-    html.ct-pulse wc-chess-board.board::before { animation: ct-pulse .6s ease-in-out infinite alternate; }
-    @keyframes ct-pulse { from { opacity: calc(var(--ct-strength) * .45); } to { opacity: var(--ct-strength); } }
+    html.ct-pulse wc-chess-board.board::before { animation: ct-pulse 1.2s ease-in-out infinite alternate; }
+    @keyframes ct-pulse { from { opacity: calc(var(--ct-strength) * .75); } to { opacity: var(--ct-strength); } }
   `;
   const style = document.createElement('style');
   style.textContent = css;
@@ -128,7 +128,7 @@
     lastKey = key;
     root.style.setProperty('--ct-strength', strength.toFixed(3));
     root.style.setProperty('--ct-color', `rgb(${colour.join(',')})`);
-    root.style.setProperty('--ct-glow', o.GLOW ? `${Math.round(strength * 40)}px` : '0px');
+    root.style.setProperty('--ct-glow', o.GLOW ? `${Math.round(strength * 36)}px` : '0px');
     root.classList.toggle('ct-pulse', pulse);
     root.classList.toggle('ct-fade', !live);
   }
