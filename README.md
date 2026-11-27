@@ -57,7 +57,7 @@ before turning heart rate on in the app (the app waits until the port is free).
 
 ## Lichess Desk — `lichess-desk/`
 
-<img src="docs/lichess-desk.gif" width="720" alt="Lichess Desk: the board tints from yellow through amber to red as your clock runs from one minute to zero, with a red NEW ACCOUNT pill above the opponent's clock and the auto-queen button under yours">
+<img src="docs/lichess-desk.gif" width="720" alt="Lichess Desk: the board tints from yellow through amber to coral as your clock runs from one minute to zero, with a red NEW ACCOUNT pill above the opponent's clock and the auto-queen button under yours">
 
 <sub>Sped up and staged: the last minute of your clock, player names replaced.</sub>
 
@@ -106,7 +106,7 @@ Needs the Xcode command-line tools (`swiftc`). Not affiliated with lichess.org.
 
 Open a script's **Raw** view on GitHub and Tampermonkey offers to install it (and keeps it updated).
 
-- `clock-board-tint.user.js`: tints the board yellow → amber → orange → red as **your**
+- `clock-board-tint.user.js`: tints the board yellow → amber → orange → coral as **your**
   clock runs down, pulses in the last seconds and fades after the game. Optional auto-queen
   with a button under your clock (set `AUTO_QUEEN: true`). Works on lichess and chess.com.
   On lichess it also shows the opponent's account age above their clock (`OPP_AGE`).

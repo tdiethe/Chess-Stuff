@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func applicationDidFinishLaunching(_ n: Notification) {
         d.register(defaults: [
-            "tintEnabled": true, "tintStart": 60, "tintStrength": 0.8,
+            "tintEnabled": true, "tintStart": 60, "tintStrength": 0.5,
             "tintPulse": true, "tintGlow": true, "autoQueen": true, "oppAge": true, "zoom": 1.0, "floatOnTop": false,
             "hrEnabled": false, "hrDemo": false, "hrBadge": true, "hrDevice": "", "hrPort": 8765,
         ])
@@ -202,9 +202,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             item("Start at 1:00", #selector(setStart(_:)), tag: 60),
             item("Start at 0:30", #selector(setStart(_:)), tag: 30),
             .separator(),
-            item("Subtle", #selector(setStrength(_:)), tag: 50),
-            item("Normal", #selector(setStrength(_:)), tag: 80),
-            item("Strong", #selector(setStrength(_:)), tag: 100),
+            item("Subtle", #selector(setStrength(_:)), tag: 35),
+            item("Normal", #selector(setStrength(_:)), tag: 50),
+            item("Strong", #selector(setStrength(_:)), tag: 80),
             .separator(),
             item("Pulse in Last 5 Seconds", #selector(togglePulse)),
             item("Glow Around Board", #selector(toggleGlow)),
