@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds "Lichess Desk.app" (universal) into lichess-desk/build. Pass --install to also copy it to ~/Applications.
-# Re-run after editing ../userscripts/clock-board-tint.user.js: the app bundles that file.
+# Re-run after editing ../userscripts/clock-board-tint.user.js or ../hr-overlay/{overlay.html,zones.toml}: the app bundles them.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -12,7 +12,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$TMP/AppIcon.iconset"
 echo "compiling…"
 # Universal binary: Apple Silicon + Intel.
 for arch in arm64 x86_64; do
-  swiftc -O -swift-version 5 -target $arch-apple-macos13.3 main.swift -o "$TMP/LichessDesk-$arch"
+  swiftc -O -swift-version 5 -target $arch-apple-macos13.3 main.swift hr.swift -o "$TMP/LichessDesk-$arch"
 done
 lipo -create "$TMP/LichessDesk-arm64" "$TMP/LichessDesk-x86_64" -output "$APP/Contents/MacOS/LichessDesk"
 
@@ -31,6 +31,7 @@ if [[ -n "${VERSION:-}" ]]; then   # set by release.sh
   plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
 fi
 cp ../userscripts/clock-board-tint.user.js "$APP/Contents/Resources/clock-board-tint.js"
+cp ../hr-overlay/overlay.html ../hr-overlay/zones.toml "$APP/Contents/Resources/"
 if [[ -n "${SIGN_ID:-}" ]]; then   # set by release.sh: Developer ID + hardened runtime, ready to notarise
   codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$APP"
 else                               # local build: ad-hoc signature

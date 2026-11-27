@@ -13,6 +13,7 @@
     <key>LSMinimumSystemVersion</key><string>13.3</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.board-games</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSBluetoothAlwaysUsageDescription</key><string>Lichess Desk reads your heart rate from a watch that broadcasts it, for the stream overlay.</string>
     <key>NSHumanReadableCopyright</key><string>Personal build. Not affiliated with lichess.org.</string>
 </dict>
 </plist>
