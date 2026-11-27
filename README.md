@@ -2,6 +2,8 @@
 
 Random collection of scripts and other stuff, mostly for streaming bullet chess.
 
+**Website:** [chess.tomdiethe.com](https://chess.tomdiethe.com)
+
 | Folder | What it is |
 | --- | --- |
 | [`hr-overlay/`](hr-overlay) | Heart-rate overlay for OBS, with a lichess / chess.com scoreboard |
