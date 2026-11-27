@@ -10,6 +10,9 @@ Random collection of scripts and other stuff, mostly for streaming bullet chess.
 
 ## Heart-rate overlay — `hr-overlay/`
 
+<img src="docs/hr-overlay.png" width="420" alt="Heart-rate overlay: big BPM with zone label, session scoreboard, heart-rate trace and the last 10 games as tiles">
+<img src="docs/hr-overlay-card.png" width="420" alt="The same overlay with the post-game card showing average, peak and panic time">
+
 Reads heart rate from a watch that broadcasts over Bluetooth (e.g. a Garmin Fenix with
 *Broadcast Heart Rate* on) and serves an OBS Browser Source at `http://127.0.0.1:8765/`:
 
@@ -33,6 +36,10 @@ Needs [uv](https://docs.astral.sh/uv/); it installs the one dependency (`bleak`)
 
 ## Lichess Desk — `lichess-desk/`
 
+<img src="docs/lichess-desk.png" width="720" alt="Lichess Desk: the board tinted red with seconds left, a red NEW ACCOUNT pill above the opponent's clock, and the auto-queen button under yours">
+
+<sub>Staged: board tint previewed at 9 seconds, player names replaced.</sub>
+
 ```bash
 brew tap tdiethe/tap
 brew trust tdiethe/tap     # Homebrew asks you to trust third-party taps
@@ -47,6 +54,8 @@ A native Mac app around lichess.org (Apple Silicon and Intel, macOS 13.3+):
 - fixed window title and size presets (View menu), so OBS Window Capture never needs redoing
 - board tint and auto-queen built in, with settings in the **Tint** and **Play** menus
 - Auto-queen button under your clock; hold ⌥ while promoting to pick another piece
+- opponent account age above their clock: red and flashing for brand-new accounts
+  (under 14 days or 30 games), amber for young ones, so you can spot smurfs and abort in time
 
 ```bash
 lichess-desk/build.sh            # builds lichess-desk/build/Lichess Desk.app
@@ -74,6 +83,7 @@ Open a script's **Raw** view on GitHub and Tampermonkey offers to install it (an
 - `clock-board-tint.user.js`: tints the board yellow → amber → orange → red as **your**
   clock runs down, pulses in the last seconds and fades after the game. Optional auto-queen
   with a button under your clock (set `AUTO_QUEEN: true`). Works on lichess and chess.com.
+  On lichess it also shows the opponent's account age above their clock (`OPP_AGE`).
   Lichess Desk bundles this file.
 - `auto-queen-toggle.user.js`: standalone auto-queen toggle (Alt+Q, hold Shift to choose).
   Don't run it alongside the auto-queen in `clock-board-tint.user.js`.
